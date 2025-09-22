@@ -1,4 +1,4 @@
-import { assertServerEnv } from "./env";
+import { env } from "./env";
 
 interface SendQrEmailOptions {
   to: string;
@@ -6,7 +6,8 @@ interface SendQrEmailOptions {
   team: string;
   checkInUrl: string;
   qrImageBase64: string;
-  attachmentFileName: string;
+  qrCodeUrl: string;
+  attachmentFileName?: string;
 }
 
 export async function sendQrEmail({
@@ -15,16 +16,15 @@ export async function sendQrEmail({
   team,
   checkInUrl,
   qrImageBase64,
+  qrCodeUrl,
   attachmentFileName
 }: SendQrEmailOptions) {
-  const supabaseUrl = assertServerEnv("supabaseUrl");
-  const serviceRoleKey = assertServerEnv("supabaseServiceRoleKey");
+  const apiUrl = `${env.appUrl}/api/send-qr-email`;
 
-  const response = await fetch(`${supabaseUrl}/functions/v1/send-qrcode-email`, {
+  const response = await fetch(apiUrl, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${serviceRoleKey}`
     },
     body: JSON.stringify({
       to,
@@ -32,6 +32,7 @@ export async function sendQrEmail({
       team,
       checkInUrl,
       qrImageBase64,
+      qrCodeUrl,
       attachmentFileName
     })
   });
@@ -41,8 +42,10 @@ export async function sendQrEmail({
     throw new Error(`이메일 전송 실패: ${errorBody}`);
   }
 
-  const result = (await response.json().catch(() => ({}))) as { success?: boolean };
+  const result = (await response.json().catch(() => ({}))) as { success?: boolean; message?: string };
   if (!result.success) {
     throw new Error("이메일 전송 결과를 확인할 수 없습니다.");
   }
+
+  console.log("✅ 이메일 전송 성공:", result.message);
 }
