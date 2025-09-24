@@ -12,8 +12,7 @@ interface CheckinData {
   checkedInAt: string;
   alreadyCheckedIn?: boolean;
 }
-
-export default function CheckinPage() {
+function CheckinContent() {
   const [checkinData, setCheckinData] = useState<CheckinData | null>(null);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -193,5 +192,13 @@ export default function CheckinPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function CheckinPage() {
+  return (
+    <Suspense fallback={null}>
+      <CheckinContent />
+    </Suspense>
   );
 }
