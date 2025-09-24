@@ -4,7 +4,12 @@ import { ReactNode } from "react";
 
 export const metadata: Metadata = {
   title: "체육대회 출석체크",
-  description: "직원 QR 코드를 업로드하고 이메일로 전송합니다."
+  description: "직원 QR 코드를 업로드하고 이메일로 전송합니다.",
+  icons: {
+    icon: [
+      { url: '/icon.ico', rel: 'shortcut icon' },
+    ],
+  }
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
