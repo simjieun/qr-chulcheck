@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
-import React from "react";
-import { EmailTemplate } from "@/components/email-template";
-import { env, assertServerEnv } from "@/lib/env";
+import { exec } from "child_process";
+import { promisify } from "util";
+import path from "path";
 
-const resend = new Resend(env.resendApiKey);
+const execAsync = promisify(exec);
 
 interface SendEmailRequest {
   to: string;
@@ -18,7 +17,7 @@ interface SendEmailRequest {
 
 export async function POST(request: Request) {
   try {
-    console.log("=== 이메일 전송 API 시작 ===");
+    console.log("=== Python 이메일 전송 API 시작 ===");
     
     const body: SendEmailRequest = await request.json();
     const { to, name, team, checkInUrl, qrImageBase64, qrCodeUrl, attachmentFileName } = body;
@@ -32,53 +31,62 @@ export async function POST(request: Request) {
       );
     }
 
-    // RESEND_API_KEY 확인
-    if (!env.resendApiKey) {
-      console.log("❌ RESEND_API_KEY가 설정되지 않았습니다.");
+    // SMTP 환경변수 확인
+    if (!process.env.SMTP_USERNAME || !process.env.SMTP_PASSWORD || !process.env.SMTP_FROM_EMAIL) {
+      console.log("❌ SMTP 환경변수가 설정되지 않았습니다.");
       return NextResponse.json(
-        { error: "이메일 서비스가 설정되지 않았습니다." },
+        { error: "이메일 서비스가 설정되지 않았습니다. SMTP 환경변수를 확인해주세요." },
         { status: 500 }
       );
     }
 
-    // 개발/테스트 모드: 본인 이메일로만 전송 가능
-    const testMode = !env.resendApiKey || env.resendApiKey.startsWith('re_');
-    const finalRecipient = testMode ? env.testEmail : to;
-    
-    console.log(`📧 이메일 전송 시작: ${to} ${testMode ? `(테스트 모드: ${finalRecipient}로 전송)` : ''}`);
+    console.log(`📧 Python 이메일 전송 시작: ${to}`);
 
-    const { data, error } = await resend.emails.send({
-      from: "체육대회 <onboarding@resend.dev>",
-      to: [finalRecipient],
-      subject: `${team} 체육대회 QR 코드 안내`,
-      react: EmailTemplate({
-        firstName: name,
-        team: team,
-        checkInUrl: checkInUrl,
-        qrCodeUrl: qrCodeUrl,
-      }) as React.ReactElement,
-      attachments: [
-        {
-          filename: attachmentFileName || `${name}-qr-code.png`,
-          content: qrImageBase64,
-          contentType: "image/png",
-        },
-      ],
-    });
+    // Python 스크립트에 전달할 데이터
+    const emailData = {
+      to_email: to,
+      to_name: name,
+      team: team,
+      check_in_url: checkInUrl,
+      qr_code_base64: qrImageBase64,
+      qr_code_url: qrCodeUrl,
+      attachment_file_name: attachmentFileName || `${name}-qr-code.png`
+    };
 
-    if (error) {
-      console.log("❌ 이메일 전송 실패:", error);
+    // Python 스크립트 경로
+    const scriptPath = path.join(process.cwd(), 'scripts', 'send_email.py');
+    const command = `python3 "${scriptPath}" '${JSON.stringify(emailData)}'`;
+
+    console.log("🐍 Python 스크립트 실행:", command);
+
+    // Python 스크립트 실행
+    const { stdout, stderr } = await execAsync(command);
+
+    if (stderr && stderr.trim()) {
+      console.log("⚠️ Python 스크립트 경고:", stderr);
+    }
+
+    // Python 스크립트 결과 파싱
+    let result;
+    try {
+      result = JSON.parse(stdout.trim());
+    } catch (parseError) {
+      console.log("❌ Python 응답 파싱 실패:", stdout);
+      throw new Error(`Python 스크립트 응답을 파싱할 수 없습니다: ${stdout}`);
+    }
+
+    if (!result.success) {
+      console.log("❌ Python 이메일 전송 실패:", result);
       return NextResponse.json(
-        { error: "이메일 전송에 실패했습니다.", details: error },
+        { error: "이메일 전송에 실패했습니다.", details: result.error },
         { status: 500 }
       );
     }
 
-    console.log("✅ 이메일 전송 성공:", data);
+    console.log("✅ Python 이메일 전송 성공:", result);
     return NextResponse.json({ 
       success: true, 
-      data,
-      message: "이메일이 성공적으로 전송되었습니다." 
+      message: result.message || "이메일이 성공적으로 전송되었습니다." 
     });
 
   } catch (error) {
