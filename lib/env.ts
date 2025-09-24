@@ -44,7 +44,7 @@ export function assertServerEnv(key: keyof typeof env): string {
   
   // 보안 검증
   if (key.includes('KEY') || key.includes('SECRET')) {
-    if (value.length < 20) {
+    if (typeof value === 'string' && value.length < 20) {
       console.warn(`⚠️ 환경변수 ${key}의 값이 너무 짧습니다. 보안에 취약할 수 있습니다.`);
     }
   }
