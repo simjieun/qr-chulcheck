@@ -13,12 +13,12 @@ interface CheckinData {
   alreadyCheckedIn?: boolean;
 }
 
-function CheckinContent() {
+export default function CheckinPage() {
   const [checkinData, setCheckinData] = useState<CheckinData | null>(null);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const searchParams = useSearchParams();
   const qrToken = searchParams.get("token");
 
@@ -36,7 +36,7 @@ function CheckinContent() {
   const handleCheckin = async (token: string) => {
     try {
       console.log("🎫 체크인 시도:", token);
-      
+
       const response = await fetch('/api/checkin', {
         method: 'POST',
         headers: {
@@ -46,7 +46,7 @@ function CheckinContent() {
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || "체크인 처리에 실패했습니다.");
       }
@@ -55,7 +55,7 @@ function CheckinContent() {
         console.log("✅ 체크인 성공:", data.data);
         setCheckinData(data.data);
         setIsCheckedIn(true);
-        
+
         // 이미 체크인한 경우 메시지 표시
         if (data.data.alreadyCheckedIn) {
           console.log("⚠️ 이미 체크인된 사용자");
@@ -63,7 +63,7 @@ function CheckinContent() {
       } else {
         throw new Error("체크인 응답이 올바르지 않습니다.");
       }
-      
+
     } catch (err) {
       console.error("❌ 체크인 오류:", err);
       const errorMessage = err instanceof Error ? err.message : "체크인 처리 중 오류가 발생했습니다.";
@@ -147,11 +147,11 @@ function CheckinContent() {
             {isCheckedIn ? (checkinData?.alreadyCheckedIn ? "이미 체크인됨" : "체크인 완료!") : "체크인"}
           </h1>
           <p className="text-slate-600 mb-8">
-            {isCheckedIn ? 
-              (checkinData?.alreadyCheckedIn ? 
-                "이미 체크인하신 기록이 있습니다." : 
+            {isCheckedIn ?
+              (checkinData?.alreadyCheckedIn ?
+                "이미 체크인하신 기록이 있습니다." :
                 "성공적으로 출석 체크되었습니다."
-              ) : 
+              ) :
               "출석을 확인하고 있습니다."
             }
           </p>
@@ -193,25 +193,5 @@ function CheckinContent() {
         </div>
       </div>
     </main>
-  );
-}
-
-function LoadingFallback() {
-  return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-8 px-6 py-12">
-      <div className="text-center space-y-4">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-        <h1 className="text-2xl font-bold text-slate-900">로딩중...</h1>
-        <p className="text-slate-600">잠시만 기다려주세요.</p>
-      </div>
-    </main>
-  );
-}
-
-export default function CheckinPage() {
-  return (
-    <Suspense fallback={<LoadingFallback />}>
-      <CheckinContent />
-    </Suspense>
   );
 }

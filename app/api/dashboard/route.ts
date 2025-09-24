@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase";
+import { validateEnvConfig } from "@/lib/env";
 
 interface DashboardStats {
   total: number;
@@ -11,6 +12,9 @@ interface DashboardStats {
 export async function GET() {
   try {
     console.log("=== 대시보드 현황 조회 API 호출 ===");
+    
+    // 환경변수 검증
+    validateEnvConfig();
     
     const supabase = getSupabaseAdminClient();
 

@@ -5,7 +5,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "build:analyze": "ANALYZE=true next build",
+    "build:production": "NODE_ENV=production next build",
+    "start:production": "NODE_ENV=production next start",
+    "type-check": "tsc --noEmit",
+    "clean": "rm -rf .next out",
+    "build:clean": "yarn clean && yarn build"
   },
   "dependencies": {
     "@radix-ui/react-progress": "^1.0.3",
