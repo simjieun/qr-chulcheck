@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -13,7 +13,7 @@ interface CheckinData {
   alreadyCheckedIn?: boolean;
 }
 
-export default function CheckinPage() {
+function CheckinContent() {
   const [checkinData, setCheckinData] = useState<CheckinData | null>(null);
   const [isCheckedIn, setIsCheckedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -193,5 +193,25 @@ export default function CheckinPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-8 px-6 py-12">
+      <div className="text-center space-y-4">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+        <h1 className="text-2xl font-bold text-slate-900">로딩중...</h1>
+        <p className="text-slate-600">잠시만 기다려주세요.</p>
+      </div>
+    </main>
+  );
+}
+
+export default function CheckinPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <CheckinContent />
+    </Suspense>
   );
 }
