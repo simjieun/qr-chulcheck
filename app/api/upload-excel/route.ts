@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import * as QRCode from "qrcode";
 import { getSupabaseAdminClient } from "@/lib/supabase";
 import { env } from "@/lib/env";
-import { sendQrEmail } from "@/lib/email";
+import { sendQREmail } from "@/lib/nodemail";
 import type { EmployeeRow, NormalizedEmployee } from "@/types/attendance";
 import { read, utils } from "xlsx";
 
@@ -183,14 +183,12 @@ export async function POST(request: Request) {
       // 이메일 전송 시도
       try {
         console.log(`📧 이메일 전송 시작 (${normalized.email})`);
-        await sendQrEmail({
+        await sendQREmail({
           to: normalized.email,
           name: normalized.name,
           team: normalized.team,
           checkInUrl,
-          qrImageBase64: qrBuffer.toString("base64"),
-          qrCodeUrl: publicUrl,
-          attachmentFileName: `${normalized.name}-qr.png`
+          qrImageBase64: qrBuffer.toString("base64")
         });
         console.log(`✅ 이메일 전송 성공 (${normalized.email})`);
         result.emailed += 1;
