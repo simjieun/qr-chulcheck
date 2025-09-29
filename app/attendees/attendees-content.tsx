@@ -9,7 +9,7 @@ interface Attendee {
   name: string;
   team: string;
   email: string;
-  checked_in_at: string | null;
+  check_in_at: string | null;
   qr_code_url: string;
 }
 
@@ -67,8 +67,8 @@ export default function AttendeesContent() {
 
   const filteredAttendees = attendees.filter(attendee => {
     // 필터 적용
-    if (filter === 'checked_in' && !attendee.checked_in_at) return false;
-    if (filter === 'not_checked_in' && attendee.checked_in_at) return false;
+    if (filter === 'checked_in' && !attendee.check_in_at) return false;
+    if (filter === 'not_checked_in' && attendee.check_in_at) return false;
 
     // 검색어 적용
     if (searchTerm) {
@@ -86,7 +86,7 @@ export default function AttendeesContent() {
 
   const getFilterCounts = () => {
     const total = attendees.length;
-    const checkedIn = attendees.filter(a => a.checked_in_at).length;
+    const checkedIn = attendees.filter(a => a.check_in_at).length;
     const notCheckedIn = total - checkedIn;
 
     return { total, checkedIn, notCheckedIn };
@@ -280,9 +280,9 @@ export default function AttendeesContent() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-medium ${
-                        attendee.checked_in_at ? 'bg-green-500' : 'bg-slate-400'
+                        attendee.check_in_at ? 'bg-green-500' : 'bg-slate-400'
                       }`}>
-                        {attendee.checked_in_at ? (
+                        {attendee.check_in_at ? (
                           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
@@ -295,9 +295,9 @@ export default function AttendeesContent() {
                         <div className="text-sm text-slate-500 space-y-1">
                           <p>팀: {attendee.team} | 사번: {attendee.employee_number}</p>
                           <p>이메일: {attendee.email}</p>
-                          {attendee.checked_in_at && (
+                          {attendee.check_in_at && (
                             <p className="text-green-600 font-medium">
-                              출석 시간: {formatDateTime(attendee.checked_in_at)}
+                              출석 시간: {formatDateTime(attendee.check_in_at)}
                             </p>
                           )}
                         </div>
@@ -305,11 +305,11 @@ export default function AttendeesContent() {
                     </div>
                     <div className="flex items-center space-x-3">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        attendee.checked_in_at 
+                        attendee.check_in_at 
                           ? 'bg-green-100 text-green-800' 
                           : 'bg-red-100 text-red-800'
                       }`}>
-                        {attendee.checked_in_at ? '출석' : '미출석'}
+                        {attendee.check_in_at ? '출석' : '미출석'}
                       </span>
                       <a
                         href={attendee.qr_code_url}
