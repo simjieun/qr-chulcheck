@@ -11,7 +11,9 @@ export const env = {
   
   // 앱 URL - 환경별 자동 감지
   appUrl: isProduction 
-    ? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : process.env.APP_URL)
+    ? (process.env.VERCEL_PROJECT_PRODUCTION_URL 
+       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` 
+       : process.env.APP_URL)
     : (process.env.APP_URL ?? "http://localhost:3000"),
   
   // SMTP 이메일 설정
