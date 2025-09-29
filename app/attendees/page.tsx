@@ -13,8 +13,6 @@ export default function AttendeesPage() {
               <Link href="/" className="text-2xl font-bold text-red-600 tracking-tight">
                 Encar
               </Link>
-              <span className="text-slate-400">/</span>
-              <span className="text-slate-600">참석자 목록</span>
             </div>
             <Link
               href="/"
