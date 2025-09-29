@@ -109,7 +109,7 @@ export default function HomePage() {
         ) : stats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             {/* 전체 참석자 */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <Link href="/attendees?filter=all" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer block">
               <div className="flex items-center">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-slate-600">전체 참석자</p>
@@ -123,10 +123,10 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
 
             {/* 출석자 */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <Link href="/attendees?filter=checked_in" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer block">
               <div className="flex items-center">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-slate-600">출석자</p>
@@ -140,10 +140,10 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
 
             {/* 미출석자 */}
-            <div className="bg-white rounded-lg shadow p-6">
+            <Link href="/attendees?filter=not_checked_in" className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow cursor-pointer block">
               <div className="flex items-center">
                 <div className="flex-1">
                   <p className="text-sm font-medium text-slate-600">미출석자</p>
@@ -157,7 +157,7 @@ export default function HomePage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </Link>
 
             {/* 출석률 */}
             <div className="bg-white rounded-lg shadow p-6">
