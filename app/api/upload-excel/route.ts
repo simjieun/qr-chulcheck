@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import * as QRCode from "qrcode";
 import { getSupabaseAdminClient } from "@/lib/supabase";
 import { env } from "@/lib/env";
-import { sendQREmail } from "@/lib/nodemail";
+import { sendQrEmail } from "@/lib/email";
 import type { EmployeeRow, NormalizedEmployee } from "@/types/attendance";
 import { read, utils } from "xlsx";
 
@@ -183,17 +183,31 @@ export async function POST(request: Request) {
       // 이메일 전송 시도
       try {
         console.log(`📧 이메일 전송 시작 (${normalized.email})`);
-        await sendQREmail({
+        console.log(`📧 이메일 전송 데이터:`, {
           to: normalized.email,
           name: normalized.name,
           team: normalized.team,
           checkInUrl,
-          qrImageBase64: qrBuffer.toString("base64")
+          qrImageBase64Length: qrBuffer.toString("base64").length
         });
-        console.log(`✅ 이메일 전송 성공 (${normalized.email})`);
+        
+        const emailResult = await sendQrEmail({
+          to: normalized.email,
+          name: normalized.name,
+          team: normalized.team,
+          checkInUrl,
+          qrImageBase64: qrBuffer.toString("base64"),
+          qrCodeUrl: publicUrl
+        });
+        
+        console.log(`✅ 이메일 전송 성공 (${normalized.email}):`, emailResult);
         result.emailed += 1;
       } catch (emailError) {
         console.log(`❌ 이메일 전송 실패 (${normalized.email}):`, emailError);
+        console.log(`❌ 이메일 전송 실패 상세:`, {
+          message: emailError instanceof Error ? emailError.message : '알 수 없는 오류',
+          stack: emailError instanceof Error ? emailError.stack : undefined
+        });
         // 이메일 전송 실패해도 데이터 저장은 성공으로 처리
       }
 

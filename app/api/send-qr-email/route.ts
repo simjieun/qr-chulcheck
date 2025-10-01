@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sendQREmail } from "@/lib/nodemail";
+import { sendQrEmail } from "@/lib/email";
 
 interface SendEmailRequest {
   to: string;
@@ -27,18 +27,19 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log(`📧 Node.js 이메일 전송 시작: ${to}`);
+    console.log(`🐍 Python 이메일 전송 시작: ${to}`);
 
-    // Node.js 이메일 전송
-    const result = await sendQREmail({
+    // Python 이메일 전송
+    const result = await sendQrEmail({
       to,
       name,
       team,
       checkInUrl,
-      qrImageBase64
+      qrImageBase64,
+      qrCodeUrl: body.qrCodeUrl || ""
     });
 
-    console.log("✅ Node.js 이메일 전송 성공:", result);
+    console.log("✅ Python 이메일 전송 성공:", result);
     return NextResponse.json(result);
 
   } catch (error) {

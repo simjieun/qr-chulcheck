@@ -97,7 +97,7 @@ def send_qr_email(email_data):
         <div class="container">
             <div class="header">
                 <h1>안녕하세요, {email_data['to_name']}님!</h1>
-                <p>체크인용 QR 코드를 보내드립니다.</p>
+                <p>{email_data.get('team', '')} 팀 체크인용 QR 코드를 보내드립니다.</p>
             </div>
             
             <div class="qr-container">

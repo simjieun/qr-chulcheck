@@ -25,7 +25,7 @@ export const env = {
   
   // 기존 Resend 설정 (호환성 유지)
   resendApiKey: process.env.RESEND_API_KEY,
-  emailFrom: process.env.EMAIL_FROM ?? "체육대회 <noreply@encar.com>",
+  emailFrom: process.env.EMAIL_FROM ?? "체육대회 <noreply@yourdomain.com>",
   
   // 테스트 이메일 (개발 환경에서만 사용)
   testEmail: isDevelopment ? process.env.TEST_EMAIL : undefined,

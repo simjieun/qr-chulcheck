@@ -32,7 +32,7 @@ export async function GET() {
     const { count: checkedInCount, error: checkedInError } = await supabase
       .from('attendees')
       .select('*', { count: 'exact', head: true })
-      .not('check_in_at', 'is', null);
+      .eq('is_checked_in', true);
 
     if (checkedInError) {
       console.error("❌ 체크인 참석자 조회 실패:", checkedInError.message);

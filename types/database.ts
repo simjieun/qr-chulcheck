@@ -16,12 +16,12 @@ export type Database = {
     Tables: {
       attendees: {
         Row: {
-          check_in_at: string | null
           created_at: string
           email: string
           email_sent_at: string | null
           employee_number: string
           id: string
+          is_checked_in: boolean
           name: string
           qr_code_storage_path: string | null
           qr_code_url: string | null
@@ -30,12 +30,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          check_in_at?: string | null
           created_at?: string
           email: string
           email_sent_at?: string | null
           employee_number: string
           id?: string
+          is_checked_in?: boolean
           name: string
           qr_code_storage_path?: string | null
           qr_code_url?: string | null
@@ -44,12 +44,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          check_in_at?: string | null
           created_at?: string
           email?: string
           email_sent_at?: string | null
           employee_number?: string
           id?: string
+          is_checked_in?: boolean
           name?: string
           qr_code_storage_path?: string | null
           qr_code_url?: string | null

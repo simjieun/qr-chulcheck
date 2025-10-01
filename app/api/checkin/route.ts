@@ -13,7 +13,7 @@ interface CheckinResponse {
     name: string;
     team: string;
     employeeId: string;
-    checkedInAt: string;
+    isCheckedIn: boolean;
     alreadyCheckedIn?: boolean;
   };
   error?: string;
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     console.log(`👤 직원 정보: ${attendee.name} (${attendee.employee_number})`);
 
     // 이미 체크인했는지 확인
-    if (attendee.check_in_at) {
+    if (attendee.is_checked_in) {
       console.log("⚠️ 이미 체크인한 직원");
       return NextResponse.json({
         success: true,
@@ -64,19 +64,18 @@ export async function POST(request: Request) {
           name: attendee.name,
           team: attendee.team,
           employeeId: attendee.employee_number,
-          checkedInAt: attendee.check_in_at,
+          isCheckedIn: attendee.is_checked_in,
           alreadyCheckedIn: true
         }
       });
     }
 
-    // 체크인 시간 업데이트
-    const now = new Date().toISOString();
+    // 체크인 상태 업데이트
     const { data: updatedAttendee, error: updateError } = await supabase
       .from('attendees')
       .update({
-        check_in_at: now,
-        updated_at: now
+        is_checked_in: true,
+        updated_at: new Date().toISOString()
       })
       .eq('id', attendee.id)
       .select()
@@ -90,7 +89,7 @@ export async function POST(request: Request) {
       );
     }
     
-    console.log(`✅ 체크인 완료: ${attendee.name} (${now})`);
+    console.log(`✅ 체크인 완료: ${attendee.name}`);
 
     return NextResponse.json({
       success: true,
@@ -99,7 +98,7 @@ export async function POST(request: Request) {
         name: updatedAttendee.name,
         team: updatedAttendee.team,
         employeeId: updatedAttendee.employee_number,
-        checkedInAt: updatedAttendee.check_in_at!,
+        isCheckedIn: updatedAttendee.is_checked_in,
         alreadyCheckedIn: false
       }
     });
@@ -153,8 +152,8 @@ export async function GET(request: Request) {
         name: attendee.name,
         team: attendee.team,
         employeeId: attendee.employee_number,
-        checkedInAt: attendee.check_in_at,
-        alreadyCheckedIn: !!attendee.check_in_at
+        isCheckedIn: attendee.is_checked_in,
+        alreadyCheckedIn: attendee.is_checked_in
       }
     });
 
