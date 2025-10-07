@@ -1,9 +1,5 @@
 import { env } from "./env";
-import { exec } from "child_process";
-import { promisify } from "util";
-import path from "path";
-
-const execAsync = promisify(exec);
+import nodemailer from "nodemailer";
 
 interface SendQrEmailOptions {
   to: string;
@@ -24,66 +20,127 @@ export async function sendQrEmail({
   qrCodeUrl,
   attachmentFileName
 }: SendQrEmailOptions) {
-  console.log("🐍 Python 이메일 전송 시작");
-  
-  // Python 스크립트 경로
-  const pythonScriptPath = path.join(process.cwd(), "scripts", "send_email.py");
-  
-  // 이메일 데이터 준비
-  const emailData = {
+  console.log("📧 Nodemailer 이메일 전송 시작");
+
+  console.log("📧 이메일 전송 데이터:", {
     to_email: to,
     to_name: name,
     team: team,
-    check_in_url: checkInUrl,
-    qr_code_base64: qrImageBase64
-  };
-
-  console.log("🐍 Python에 전달할 데이터:", {
-    to_email: emailData.to_email,
-    to_name: emailData.to_name,
-    team: emailData.team,
-    check_in_url: emailData.check_in_url.substring(0, 50) + "...",
-    qr_code_base64_length: emailData.qr_code_base64.length
+    check_in_url: checkInUrl.substring(0, 50) + "...",
+    qr_code_base64_length: qrImageBase64.length
   });
 
   try {
-    // JSON 데이터를 안전하게 이스케이프
-    const jsonData = JSON.stringify(emailData).replace(/'/g, "'\"'\"'");
-    
-    // 환경 변수 설정
-    const envVars = {
-      ...process.env,
-      SMTP_SERVER: env.smtpServer,
-      SMTP_PORT: env.smtpPort.toString(),
-      SMTP_USERNAME: env.smtpUsername,
-      SMTP_PASSWORD: env.smtpPassword,
-      SMTP_FROM_EMAIL: env.smtpFromEmail
-    };
-    
-    // Python 스크립트 실행
-    const command = `python3 "${pythonScriptPath}" '${jsonData}'`;
-    console.log("🐍 실행할 명령어:", command.substring(0, 100) + "...");
-    
-    const { stdout, stderr } = await execAsync(command, { env: envVars });
-    
-    if (stderr) {
-      console.log("🐍 Python stderr:", stderr);
+    // SMTP transporter 생성
+    const transporter = nodemailer.createTransport({
+      host: env.smtpServer,
+      port: env.smtpPort,
+      secure: false, // TLS 사용 (포트 587)
+      auth: {
+        user: env.smtpUsername,
+        pass: env.smtpPassword,
+      },
+    });
+
+    // QR 코드 base64 데이터 처리 (data:image/png;base64, 제거)
+    let qrImageData = qrImageBase64;
+    if (qrImageData.startsWith('data:image')) {
+      qrImageData = qrImageData.split(',')[1];
     }
-    
-    console.log("🐍 Python stdout:", stdout);
-    
-    // 결과 파싱
-    const result = JSON.parse(stdout);
-    
-    if (!result.success) {
-      throw new Error(`Python 이메일 전송 실패: ${result.error}`);
-    }
-    
-    console.log("✅ Python 이메일 전송 성공:", result.message);
-    return result;
-    
+
+    // HTML 이메일 본문 생성
+    const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 600px;
+                margin: 0 auto;
+                padding: 20px;
+                background-color: #f5f5f5;
+            }
+            .container {
+                background-color: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .header {
+                text-align: center;
+                margin-bottom: 30px;
+            }
+            .qr-container {
+                text-align: center;
+                margin: 30px 0;
+            }
+            .qr-image {
+                max-width: 200px;
+                height: auto;
+            }
+            .button {
+                display: inline-block;
+                background-color: #007bff;
+                color: white;
+                padding: 12px 24px;
+                text-decoration: none;
+                border-radius: 5px;
+                margin: 20px 0;
+            }
+            .footer {
+                margin-top: 30px;
+                padding-top: 20px;
+                border-top: 1px solid #eee;
+                color: #666;
+                font-size: 14px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>안녕하세요, ${name}님!</h1>
+                <p>${team} 팀 체크인용 QR 코드를 보내드립니다.</p>
+            </div>
+
+            <div class="qr-container">
+                <img src="cid:qr_code" alt="QR Code" class="qr-image">
+                <p>위의 QR 코드를 스캔하시거나 아래 버튼을 클릭해주세요.</p>
+                <a href="${checkInUrl}" class="button">체크인하기</a>
+            </div>
+
+            <div class="footer">
+                <p>이 이메일은 자동으로 발송되었습니다.</p>
+                <p>문의사항이 있으시면 관리자에게 연락해주세요.</p>
+            </div>
+        </div>
+    </body>
+    </html>
+    `;
+
+    // 이메일 전송
+    const info = await transporter.sendMail({
+      from: env.smtpFromEmail,
+      to: to,
+      subject: 'QR 체크인 코드가 도착했습니다',
+      html: htmlBody,
+      attachments: [
+        {
+          filename: attachmentFileName || 'qr_code.png',
+          content: qrImageData,
+          encoding: 'base64',
+          cid: 'qr_code' // HTML의 cid:qr_code와 매칭
+        }
+      ]
+    });
+
+    console.log("✅ Nodemailer 이메일 전송 성공:", info.messageId);
+    return { success: true, message: `이메일이 성공적으로 전송되었습니다: ${to}` };
+
   } catch (error) {
-    console.error("❌ Python 이메일 전송 오류:", error);
-    throw new Error(`Python 이메일 전송 실패: ${error instanceof Error ? error.message : "알 수 없는 오류"}`);
+    console.error("❌ Nodemailer 이메일 전송 오류:", error);
+    throw new Error(`이메일 전송 실패: ${error instanceof Error ? error.message : "알 수 없는 오류"}`);
   }
 }
