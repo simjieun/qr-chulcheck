@@ -13,6 +13,7 @@ interface CheckinResponse {
     name: string;
     team: string;
     employeeId: string;
+    checkedInAt: string;
     isCheckedIn: boolean;
     alreadyCheckedIn?: boolean;
   };
@@ -64,6 +65,7 @@ export async function POST(request: Request) {
           name: attendee.name,
           team: attendee.team,
           employeeId: attendee.employee_number,
+          checkedInAt: attendee.updated_at,
           isCheckedIn: attendee.is_checked_in,
           alreadyCheckedIn: true
         }
@@ -98,6 +100,7 @@ export async function POST(request: Request) {
         name: updatedAttendee.name,
         team: updatedAttendee.team,
         employeeId: updatedAttendee.employee_number,
+        checkedInAt: updatedAttendee.updated_at,
         isCheckedIn: updatedAttendee.is_checked_in,
         alreadyCheckedIn: false
       }
@@ -152,6 +155,7 @@ export async function GET(request: Request) {
         name: attendee.name,
         team: attendee.team,
         employeeId: attendee.employee_number,
+        checkedInAt: attendee.updated_at,
         isCheckedIn: attendee.is_checked_in,
         alreadyCheckedIn: attendee.is_checked_in
       }

@@ -8,17 +8,18 @@
 
 - 엑셀(`직원명`, `팀명`, `이메일`, `사번`) 업로드 시 직원별 출석 토큰 생성
 - Supabase Storage 에 QR 코드 이미지 저장 및 공개 URL 생성
-- Supabase Edge Function 을 통해 QR 코드가 첨부된 이메일 발송
+- Nodemailer (SMTP) 를 통해 QR 코드가 첨부된 이메일 발송
 - 업로드 결과 요약을 통해 성공/실패 내역 확인
+- 실시간 대시보드를 통한 출석 현황 모니터링
 
 ## 기술 스택
 
-- [Next.js](https://nextjs.org/) 14 (App Router, Server Actions)
+- [Next.js](https://nextjs.org/) 15 (App Router, React 19)
 - [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS](https://tailwindcss.com/)
-- [Radix UI](https://www.radix-ui.com/) Progress 컴포넌트
-- [Supabase](https://supabase.com/) (Postgres, Storage, Edge Functions)
-- [Resend](https://resend.com/) (이메일 발송 – Supabase Edge Function 내에서 사용)
+- [Radix UI](https://www.radix-ui.com/) (Progress, Toast 컴포넌트)
+- [Supabase](https://supabase.com/) (PostgreSQL, Storage)
+- [Nodemailer](https://nodemailer.com/) (SMTP 이메일 발송)
 
 ## 프로젝트 실행 방법
 
@@ -39,15 +40,22 @@
    SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
    SUPABASE_QR_BUCKET=qr-codes
    APP_URL=http://localhost:3000
-   RESEND_API_KEY=your-resend-api-key
-   EMAIL_FROM=attendance@your-domain.com
+
+   # SMTP Email Configuration
+   SMTP_SERVER=smtp.gmail.com
+   SMTP_PORT=587
+   SMTP_USERNAME=your-email@gmail.com
+   SMTP_PASSWORD=your-app-password
+   SMTP_FROM_EMAIL=your-email@gmail.com
+
+   # Optional: Test email for development
+   TEST_EMAIL=test@example.com
    ```
 
 3. Supabase 설정
 
    - `supabase/migrations/0001_create_attendees.sql`을 실행하여 `attendees` 테이블과 트리거를 생성합니다.
    - `qr-codes` 이름의 Storage 버킷을 생성하고 Public 접근을 허용합니다.
-   - Supabase CLI 또는 대시보드를 이용해 `supabase/functions/send-qrcode-email` Edge Function 을 배포하고, `RESEND_API_KEY`, `EMAIL_FROM` 환경 변수를 설정합니다.
 
 4. 개발 서버 실행
 
@@ -69,11 +77,16 @@
   - FormData(`file`) 형태의 엑셀 파일을 수신합니다.
   - 직원별 QR 코드를 생성하여 Supabase Storage 에 저장합니다.
   - `attendees` 테이블에 직원 정보를 upsert 합니다.
-  - Supabase Edge Function(`send-qrcode-email`)을 호출해 이메일을 발송합니다.
+  - Nodemailer 를 통해 QR 코드가 첨부된 이메일을 발송합니다.
   - 성공/실패 요약을 JSON 으로 반환합니다.
 
-## 향후 구현 예정
+- `POST /api/checkin`
+  - QR 코드 토큰을 받아 출석 체크를 수행합니다.
+  - `check_in_at` 필드를 업데이트하여 출석을 기록합니다.
 
-- QR 코드 스캔 페이지 및 실시간 출석 체크 반영
-- 홈 화면에서 참석/미참석 인원 현황 대시보드 제공
+- `GET /api/dashboard`
+  - 전체/출석/미출석 인원 통계를 반환합니다.
+
+- `GET /api/attendees`
+  - 참석자 목록을 필터링하여 반환합니다 (팀별, 출석 여부 등).
 

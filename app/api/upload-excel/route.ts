@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import * as QRCode from "qrcode";
 import { getSupabaseAdminClient } from "@/lib/supabase";
 import { env } from "@/lib/env";
@@ -15,6 +15,11 @@ interface UploadResult {
 }
 
 export const runtime = "nodejs";
+
+// 짧은 토큰 생성 (8자리)
+function generateShortToken(): string {
+  return randomBytes(6).toString('base64url').substring(0, 8);
+}
 
 function sanitizeForStorage(text: string): string {
   // 한글이 포함된 경우 Base64로 인코딩하여 안전한 형태로 변환
@@ -128,7 +133,7 @@ export async function POST(request: Request) {
     console.log(`✅ 행 ${index + 2}: 정규화된 데이터`, normalized);
 
     try {
-      const qrToken = randomUUID();
+      const qrToken = generateShortToken();
       const checkInUrl = `${env.appUrl}/check-in?token=${qrToken}`;
       const qrBuffer = await QRCode.toBuffer(checkInUrl, {
         errorCorrectionLevel: "M",
