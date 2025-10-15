@@ -1,5 +1,6 @@
 import { env } from "./env";
-import nodemailer from "nodemailer";
+import { spawn } from "node:child_process";
+import path from "node:path";
 
 interface SendQrEmailOptions {
   to: string;
@@ -11,6 +12,26 @@ interface SendQrEmailOptions {
   attachmentFileName?: string;
 }
 
+interface BatchEmailData {
+  to_email: string;
+  name: string;
+  team: string;
+  check_in_url: string;
+  qr_image_base64: string;
+}
+
+interface BatchEmailResult {
+  success: boolean;
+  total: number;
+  succeeded: number;
+  failed: number;
+  results: Array<{
+    success: boolean;
+    email: string;
+    message: string;
+  }>;
+}
+
 export async function sendQrEmail({
   to,
   name,
@@ -20,7 +41,7 @@ export async function sendQrEmail({
   qrCodeUrl,
   attachmentFileName
 }: SendQrEmailOptions) {
-  console.log("📧 Nodemailer 이메일 전송 시작");
+  console.log("📧 Python SMTP 이메일 전송 시작");
 
   console.log("📧 이메일 전송 데이터:", {
     to_email: to,
@@ -31,116 +52,154 @@ export async function sendQrEmail({
   });
 
   try {
-    // SMTP transporter 생성
-    const transporter = nodemailer.createTransport({
-      host: env.smtpServer,
-      port: env.smtpPort,
-      secure: false, // TLS 사용 (포트 587)
-      auth: {
-        user: env.smtpUsername,
-        pass: env.smtpPassword,
-      },
+    // Python 스크립트 경로
+    const scriptPath = path.join(process.cwd(), 'scripts', 'send_email.py');
+
+    // Python 스크립트로 전달할 데이터
+    const inputData = {
+      to_email: to,
+      name: name,
+      team: team,
+      check_in_url: checkInUrl,
+      qr_image_base64: qrImageBase64.startsWith('data:image')
+        ? qrImageBase64
+        : `data:image/png;base64,${qrImageBase64}`,
+      smtp_server: env.smtpServer,
+      smtp_port: env.smtpPort,
+      smtp_username: env.smtpUsername,
+      smtp_password: env.smtpPassword,
+      from_email: env.smtpFromEmail
+    };
+
+    // Python 스크립트 실행
+    const result = await new Promise<{ success: boolean; message: string }>((resolve, reject) => {
+      const python = spawn('python3', [scriptPath]);
+
+      let stdout = '';
+      let stderr = '';
+
+      python.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      python.stderr.on('data', (data) => {
+        stderr += data.toString();
+        console.log('Python stderr:', data.toString());
+      });
+
+      python.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const result = JSON.parse(stdout);
+            resolve(result);
+          } catch (error) {
+            reject(new Error(`JSON 파싱 실패: ${stdout}`));
+          }
+        } else {
+          reject(new Error(`Python 스크립트 실행 실패 (코드 ${code}): ${stderr || stdout}`));
+        }
+      });
+
+      python.on('error', (error) => {
+        reject(new Error(`Python 프로세스 오류: ${error.message}`));
+      });
+
+      // 입력 데이터를 stdin으로 전달
+      python.stdin.write(JSON.stringify(inputData));
+      python.stdin.end();
     });
 
-    // QR 코드 base64 데이터 처리 (data:image/png;base64, 제거)
-    let qrImageData = qrImageBase64;
-    if (qrImageData.startsWith('data:image')) {
-      qrImageData = qrImageData.split(',')[1];
+    if (result.success) {
+      console.log("✅ Python 이메일 전송 성공:", result.message);
+      return { success: true, message: result.message };
+    } else {
+      throw new Error(result.message);
     }
 
-    // HTML 이메일 본문 생성
-    const htmlBody = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body {
-                font-family: Arial, sans-serif;
-                max-width: 600px;
-                margin: 0 auto;
-                padding: 20px;
-                background-color: #f5f5f5;
-            }
-            .container {
-                background-color: white;
-                padding: 30px;
-                border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            }
-            .header {
-                text-align: center;
-                margin-bottom: 30px;
-            }
-            .qr-container {
-                text-align: center;
-                margin: 30px 0;
-            }
-            .qr-image {
-                max-width: 200px;
-                height: auto;
-            }
-            .button {
-                display: inline-block;
-                background-color: #007bff;
-                color: white;
-                padding: 12px 24px;
-                text-decoration: none;
-                border-radius: 5px;
-                margin: 20px 0;
-            }
-            .footer {
-                margin-top: 30px;
-                padding-top: 20px;
-                border-top: 1px solid #eee;
-                color: #666;
-                font-size: 14px;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>안녕하세요, ${name}님!</h1>
-                <p>${team} 팀 체크인용 QR 코드를 보내드립니다.</p>
-            </div>
+  } catch (error) {
+    console.error("❌ Python 이메일 전송 오류:", error);
+    throw new Error(`이메일 전송 실패: ${error instanceof Error ? error.message : "알 수 없는 오류"}`);
+  }
+}
 
-            <div class="qr-container">
-                <img src="cid:qr_code" alt="QR Code" class="qr-image">
-                <p>위의 QR 코드를 스캔하시거나 아래 버튼을 클릭해주세요.</p>
-                <a href="${checkInUrl}" class="button">체크인하기</a>
-            </div>
+/**
+ * 배치로 여러 이메일을 전송 (SMTP 연결 재사용)
+ * @param emails 이메일 데이터 배열
+ * @returns 배치 전송 결과
+ */
+export async function sendBatchQrEmails(
+  emails: Array<SendQrEmailOptions>
+): Promise<BatchEmailResult> {
+  console.log(`📧 Python 배치 이메일 전송 시작 (${emails.length}개)`);
 
-            <div class="footer">
-                <p>이 이메일은 자동으로 발송되었습니다.</p>
-                <p>문의사항이 있으시면 관리자에게 연락해주세요.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    `;
+  try {
+    // Python 배치 스크립트 경로
+    const scriptPath = path.join(process.cwd(), 'scripts', 'send_email_batch.py');
 
-    // 이메일 전송
-    const info = await transporter.sendMail({
-      from: env.smtpFromEmail,
-      to: to,
-      subject: 'QR 체크인 코드가 도착했습니다',
-      html: htmlBody,
-      attachments: [
-        {
-          filename: attachmentFileName || 'qr_code.png',
-          content: qrImageData,
-          encoding: 'base64',
-          cid: 'qr_code' // HTML의 cid:qr_code와 매칭
+    // 배치 이메일 데이터 준비
+    const batchEmails: BatchEmailData[] = emails.map(email => ({
+      to_email: email.to,
+      name: email.name,
+      team: email.team,
+      check_in_url: email.checkInUrl,
+      qr_image_base64: email.qrImageBase64.startsWith('data:image')
+        ? email.qrImageBase64
+        : `data:image/png;base64,${email.qrImageBase64}`
+    }));
+
+    // Python 스크립트로 전달할 데이터
+    const inputData = {
+      emails: batchEmails,
+      smtp_server: env.smtpServer,
+      smtp_port: env.smtpPort,
+      smtp_username: env.smtpUsername,
+      smtp_password: env.smtpPassword,
+      from_email: env.smtpFromEmail
+    };
+
+    // Python 스크립트 실행
+    const result = await new Promise<BatchEmailResult>((resolve, reject) => {
+      const python = spawn('python3', [scriptPath]);
+
+      let stdout = '';
+      let stderr = '';
+
+      python.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      python.stderr.on('data', (data) => {
+        stderr += data.toString();
+        console.log('Python stderr:', data.toString());
+      });
+
+      python.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const result = JSON.parse(stdout);
+            resolve(result);
+          } catch (error) {
+            reject(new Error(`JSON 파싱 실패: ${stdout}`));
+          }
+        } else {
+          reject(new Error(`Python 스크립트 실행 실패 (코드 ${code}): ${stderr || stdout}`));
         }
-      ]
+      });
+
+      python.on('error', (error) => {
+        reject(new Error(`Python 프로세스 오류: ${error.message}`));
+      });
+
+      // 입력 데이터를 stdin으로 전달
+      python.stdin.write(JSON.stringify(inputData));
+      python.stdin.end();
     });
 
-    console.log("✅ Nodemailer 이메일 전송 성공:", info.messageId);
-    return { success: true, message: `이메일이 성공적으로 전송되었습니다: ${to}` };
+    console.log(`✅ 배치 이메일 전송 완료: 성공 ${result.succeeded}/${result.total}`);
+    return result;
 
   } catch (error) {
-    console.error("❌ Nodemailer 이메일 전송 오류:", error);
-    throw new Error(`이메일 전송 실패: ${error instanceof Error ? error.message : "알 수 없는 오류"}`);
+    console.error("❌ Python 배치 이메일 전송 오류:", error);
+    throw new Error(`배치 이메일 전송 실패: ${error instanceof Error ? error.message : "알 수 없는 오류"}`);
   }
 }

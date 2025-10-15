@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import * as QRCode from "qrcode";
 import { getSupabaseAdminClient } from "@/lib/supabase";
 import { env } from "@/lib/env";
-import { sendQrEmail } from "@/lib/email";
+import { sendBatchQrEmails } from "@/lib/email";
 import type { EmployeeRow, NormalizedEmployee } from "@/types/attendance";
 import { read, utils } from "xlsx";
 
@@ -116,21 +116,27 @@ export async function POST(request: Request) {
   const supabase = getSupabaseAdminClient();
   const bucket = env.qrBucket;
 
-  for (const [index, row] of rows.entries()) {
-    console.log(`🔄 행 ${index + 2} 처리 중...`);
-    console.log("원본 데이터:", row);
-    
+  // 배치 크기 설정
+  const BATCH_SIZE = 10; // 한 배치당 처리할 행 수
+  const EMAIL_BATCH_SIZE = 10; // SMTP 연결당 전송할 이메일 수
+
+  // 단일 행 처리 함수 (이메일 전송 제외)
+  async function processRow(row: EmployeeRow, index: number) {
+    const rowNumber = index + 2;
+    console.log(`🔄 행 ${rowNumber} 처리 중...`);
+
     const normalized = normalizeRow(row);
     if (!normalized) {
-      console.log(`❌ 행 ${index + 2}: 필수 값 누락`);
-      result.failures.push({
-        row: index + 2,
-        reason: "필수 값(직원명, 팀명, 이메일, 사번) 중 누락된 항목이 있습니다."
-      });
-      continue;
+      console.log(`❌ 행 ${rowNumber}: 필수 값 누락`);
+      return {
+        success: false,
+        emailed: false,
+        failure: {
+          row: rowNumber,
+          reason: "필수 값(직원명, 팀명, 이메일, 사번) 중 누락된 항목이 있습니다."
+        }
+      };
     }
-
-    console.log(`✅ 행 ${index + 2}: 정규화된 데이터`, normalized);
 
     try {
       const qrToken = generateShortToken();
@@ -144,7 +150,7 @@ export async function POST(request: Request) {
 
       const safeTeamName = sanitizeForStorage(normalized.team);
       const filePath = `${safeTeamName}/${normalized.employeeNumber}.png`;
-      console.log(`🗂️ 파일 경로: ${filePath} (원본 팀명: ${normalized.team})`);
+
       const { error: uploadError } = await supabase.storage
         .from(bucket)
         .upload(filePath, qrBuffer, {
@@ -160,8 +166,7 @@ export async function POST(request: Request) {
         data: { publicUrl }
       } = supabase.storage.from(bucket).getPublicUrl(filePath);
 
-      console.log(`💾 데이터베이스에 저장 중... (사번: ${normalized.employeeNumber})`);
-      const { data: upsertData, error: upsertError } = await supabase
+      const { error: upsertError } = await supabase
         .from("attendees")
         .upsert(
           {
@@ -183,50 +188,93 @@ export async function POST(request: Request) {
         throw upsertError;
       }
 
-      console.log(`✅ DB 저장 성공 (사번: ${normalized.employeeNumber}):`, upsertData);
+      console.log(`✅ DB 저장 성공 (사번: ${normalized.employeeNumber})`);
 
-      // 이메일 전송 시도
-      try {
-        console.log(`📧 이메일 전송 시작 (${normalized.email})`);
-        console.log(`📧 이메일 전송 데이터:`, {
-          to: normalized.email,
-          name: normalized.name,
-          team: normalized.team,
-          checkInUrl,
-          qrImageBase64Length: qrBuffer.toString("base64").length
-        });
-        
-        const emailResult = await sendQrEmail({
+      console.log(`🎉 행 ${rowNumber} 처리 완료!`);
+      return {
+        success: true,
+        emailData: {
           to: normalized.email,
           name: normalized.name,
           team: normalized.team,
           checkInUrl,
           qrImageBase64: qrBuffer.toString("base64"),
           qrCodeUrl: publicUrl
-        });
-        
-        console.log(`✅ 이메일 전송 성공 (${normalized.email}):`, emailResult);
-        result.emailed += 1;
-      } catch (emailError) {
-        console.log(`❌ 이메일 전송 실패 (${normalized.email}):`, emailError);
-        console.log(`❌ 이메일 전송 실패 상세:`, {
-          message: emailError instanceof Error ? emailError.message : '알 수 없는 오류',
-          stack: emailError instanceof Error ? emailError.stack : undefined
-        });
-        // 이메일 전송 실패해도 데이터 저장은 성공으로 처리
-      }
-
-      result.stored += 1;
-      console.log(`🎉 행 ${index + 2} 처리 완료!`);
+        },
+        failure: null
+      };
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "QR 코드 생성 또는 이메일 발송 중 오류가 발생했습니다.";
-      console.log(`❌ 행 ${index + 2} 처리 실패:`, error);
-      result.failures.push({
-        row: index + 2,
-        identifier: `${normalized?.name ?? ""} (${normalized?.email ?? ""})`,
-        reason: message
-      });
+      console.log(`❌ 행 ${rowNumber} 처리 실패:`, error);
+      return {
+        success: false,
+        emailData: null,
+        failure: {
+          row: rowNumber,
+          identifier: `${normalized?.name ?? ""} (${normalized?.email ?? ""})`,
+          reason: message
+        }
+      };
+    }
+  }
+
+  // 병렬 처리 with concurrency limit
+  async function processBatch(batch: Array<{ row: EmployeeRow; index: number }>) {
+    const results = await Promise.all(
+      batch.map(({ row, index }) => processRow(row, index))
+    );
+    return results;
+  }
+
+  // 모든 행을 배치로 나누어 처리
+  console.log(`⚡ 병렬 처리 시작 (배치 크기: ${BATCH_SIZE}개)`);
+
+  const allEmailData: any[] = [];
+
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const batch = rows.slice(i, i + BATCH_SIZE).map((row, idx) => ({
+      row,
+      index: i + idx
+    }));
+
+    console.log(`📦 배치 ${Math.floor(i / BATCH_SIZE) + 1} 처리 중 (${batch.length}개)...`);
+    const batchResults = await processBatch(batch);
+
+    // 결과 집계 및 이메일 데이터 수집
+    for (const batchResult of batchResults) {
+      if (batchResult.success) {
+        result.stored += 1;
+        if (batchResult.emailData) {
+          allEmailData.push(batchResult.emailData);
+        }
+      }
+      if (batchResult.failure) {
+        result.failures.push(batchResult.failure);
+      }
+    }
+
+    console.log(`✅ 배치 ${Math.floor(i / BATCH_SIZE) + 1} 완료 (누적: ${result.stored}/${result.total})`);
+  }
+
+  // 배치로 이메일 전송 (SMTP 연결 재사용)
+  console.log(`📧 이메일 배치 전송 시작 (총 ${allEmailData.length}개)`);
+
+  for (let i = 0; i < allEmailData.length; i += EMAIL_BATCH_SIZE) {
+    const emailBatch = allEmailData.slice(i, i + EMAIL_BATCH_SIZE);
+    const batchNum = Math.floor(i / EMAIL_BATCH_SIZE) + 1;
+    const totalBatches = Math.ceil(allEmailData.length / EMAIL_BATCH_SIZE);
+
+    console.log(`📨 이메일 배치 ${batchNum}/${totalBatches} 전송 중 (${emailBatch.length}개)...`);
+
+    try {
+      const emailResult = await sendBatchQrEmails(emailBatch);
+      result.emailed += emailResult.succeeded;
+
+      console.log(`✅ 이메일 배치 ${batchNum} 완료 (성공: ${emailResult.succeeded}/${emailResult.total})`);
+    } catch (error) {
+      console.error(`❌ 이메일 배치 ${batchNum} 전송 실패:`, error);
+      // 이메일 전송 실패해도 계속 진행
     }
   }
 

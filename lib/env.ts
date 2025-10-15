@@ -16,7 +16,7 @@ export const env = {
        : process.env.APP_URL)
     : (process.env.APP_URL ?? "http://localhost:3000"),
   
-  // SMTP 이메일 설정
+  // SMTP 이메일 설정 (Gmail)
   smtpServer: process.env.SMTP_SERVER ?? "smtp.gmail.com",
   smtpPort: parseInt(process.env.SMTP_PORT ?? "587"),
   smtpUsername: process.env.SMTP_USERNAME,
