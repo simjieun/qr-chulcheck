@@ -3,6 +3,8 @@ export interface EmployeeRow {
   팀명?: string;
   이메일?: string;
   사번?: string | number;
+  옷사이즈?: string;
+  체육대회팀명?: string;
 }
 
 export interface NormalizedEmployee {
@@ -10,4 +12,6 @@ export interface NormalizedEmployee {
   team: string;
   email: string;
   employeeNumber: string;
+  clothingSize?: string;
+  sportsTeam?: string;
 }

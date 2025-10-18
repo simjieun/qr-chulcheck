@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       attendees: {
         Row: {
+          clothing_size: string | null
           created_at: string
           email: string
           email_sent_at: string | null
@@ -26,10 +27,12 @@ export type Database = {
           qr_code_storage_path: string | null
           qr_code_url: string | null
           qr_token: string
+          sports_team: string | null
           team: string
           updated_at: string
         }
         Insert: {
+          clothing_size?: string | null
           created_at?: string
           email: string
           email_sent_at?: string | null
@@ -40,10 +43,12 @@ export type Database = {
           qr_code_storage_path?: string | null
           qr_code_url?: string | null
           qr_token: string
+          sports_team?: string | null
           team: string
           updated_at?: string
         }
         Update: {
+          clothing_size?: string | null
           created_at?: string
           email?: string
           email_sent_at?: string | null
@@ -54,7 +59,38 @@ export type Database = {
           qr_code_storage_path?: string | null
           qr_code_url?: string | null
           qr_token?: string
+          sports_team?: string | null
           team?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      scoreboard: {
+        Row: {
+          created_at: string
+          event_name: string
+          id: string
+          rank: number
+          score: number
+          team_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_name: string
+          id?: string
+          rank: number
+          score?: number
+          team_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_name?: string
+          id?: string
+          rank?: number
+          score?: number
+          team_name?: string
           updated_at?: string
         }
         Relationships: []

@@ -11,6 +11,8 @@ interface Attendee {
   email: string;
   is_checked_in: boolean;
   qr_code_url: string;
+  clothing_size: string | null;
+  sports_team: string | null;
 }
 
 interface AttendeeListResponse {
@@ -283,6 +285,13 @@ export default function AttendeesContent() {
                         <div className="text-sm text-slate-500 space-y-1">
                           <p>팀: {attendee.team} | 사번: {attendee.employee_number}</p>
                           <p>이메일: {attendee.email}</p>
+                          {(attendee.clothing_size || attendee.sports_team) && (
+                            <p>
+                              {attendee.clothing_size && `옷사이즈: ${attendee.clothing_size}`}
+                              {attendee.clothing_size && attendee.sports_team && ' | '}
+                              {attendee.sports_team && `체육대회팀: ${attendee.sports_team}`}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </div>

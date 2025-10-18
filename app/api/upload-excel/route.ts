@@ -51,12 +51,14 @@ function normalizeRow(row: EmployeeRow): NormalizedEmployee | null {
   const employeeNumber = typeof employeeNumberRaw === "number"
     ? String(employeeNumberRaw)
     : String(employeeNumberRaw ?? "").trim();
+  const clothingSize = String(row["옷사이즈"] ?? "").trim() || undefined;
+  const sportsTeam = String(row["체육대회팀명"] ?? "").trim() || undefined;
 
   if (!name || !team || !email || !employeeNumber) {
     return null;
   }
 
-  return { name, team, email, employeeNumber };
+  return { name, team, email, employeeNumber, clothingSize, sportsTeam };
 }
 
 export async function POST(request: Request) {
@@ -177,7 +179,9 @@ export async function POST(request: Request) {
             qr_token: qrToken,
             qr_code_url: publicUrl,
             qr_code_storage_path: filePath,
-            email_sent_at: new Date().toISOString()
+            email_sent_at: new Date().toISOString(),
+            clothing_size: normalized.clothingSize,
+            sports_team: normalized.sportsTeam
           },
           { onConflict: "employee_number" }
         )
