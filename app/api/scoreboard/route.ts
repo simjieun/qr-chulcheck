@@ -4,7 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase";
 export const runtime = "nodejs";
 
 // 종목 목록 (순서대로)
-export const EVENTS = [
+const EVENTS = [
   "글래디 에이터",
   "지네발 릴레이",
   "초대형 굴렁쇠",
@@ -15,7 +15,7 @@ export const EVENTS = [
 ] as const;
 
 // 팀 목록
-export const TEAMS = ["빨강", "노랑", "초록", "파랑"] as const;
+const TEAMS = ["빨강", "노랑", "초록", "파랑"] as const;
 
 export async function GET() {
   console.log("=== 점수판 조회 시작 ===");
